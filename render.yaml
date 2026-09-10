@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: lld-practice-platform
+    env: node
+    plan: free
+    buildCommand: npm run setup
+    startCommand: node backend/dist/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:./dev.db
+      - key: PORT
+        value: 10000
+      - key: GEMINI_API_KEY
+        sync: false
