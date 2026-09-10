@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 import problemRoutes from './routes/problemRoutes.js';
 import attemptRoutes from './routes/attemptRoutes.js';
 import {
@@ -30,23 +31,35 @@ app.use('/api/problems', problemRoutes);
 app.use('/api/attempts', attemptRoutes);
 
 // Optional: Serve frontend build in unified monolithic production deployment
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const possibleFrontendPaths = [
-  path.resolve(process.cwd(), '../frontend/dist'),
   path.resolve(process.cwd(), 'frontend/dist'),
-  path.resolve(process.cwd(), './public')
+  path.resolve(process.cwd(), '../frontend/dist'),
+  path.resolve(__dirname, '../../frontend/dist'),
+  path.resolve(__dirname, '../../../frontend/dist')
 ];
 
-for (const frontendDist of possibleFrontendPaths) {
-  if (fs.existsSync(frontendDist) && fs.existsSync(path.join(frontendDist, 'index.html'))) {
-    app.use(express.static(frontendDist));
-    app.get('*', (req: Request, res: Response, next: NextFunction) => {
-      if (req.path.startsWith('/api')) {
-        return next();
-      }
-      res.sendFile(path.join(frontendDist, 'index.html'));
-    });
+let resolvedFrontendDist: string | null = null;
+for (const p of possibleFrontendPaths) {
+  if (fs.existsSync(p) && fs.existsSync(path.join(p, 'index.html'))) {
+    resolvedFrontendDist = p;
     break;
   }
+}
+
+if (resolvedFrontendDist) {
+  console.log(`Serving static frontend from: ${resolvedFrontendDist}`);
+  app.use(express.static(resolvedFrontendDist));
+  app.get('*', (req: Request, res: Response, next: NextFunction) => {
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    res.sendFile(path.join(resolvedFrontendDist!, 'index.html'));
+  });
+} else {
+  console.log('No static frontend dist found; running API-only mode.');
 }
 
 // Centralized Error Handling Middleware
