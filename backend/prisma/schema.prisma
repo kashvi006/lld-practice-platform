@@ -1,0 +1,84 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Problem {
+  id                      String    @id @default(uuid())
+  slug                    String    @unique
+  title                   String
+  difficulty              String    // EASY, MEDIUM, HARD
+  shortDescription        String
+  problemStatement        String
+  functionalRequirements  String    // JSON array of strings
+  constraints             String    // JSON array of strings
+  assumptionsPrompts      String    // JSON array of strings
+  suggestedConsiderations String    // JSON array of strings
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  attempts                Attempt[]
+}
+
+model Attempt {
+  id            String      @id @default(uuid())
+  problemId     String
+  problem       Problem     @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  attemptNumber Int
+  status        String      @default("IN_PROGRESS") // IN_PROGRESS, SUBMITTED, EVALUATING, COMPLETED, FAILED
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  submission    Submission?
+  evaluation    Evaluation?
+
+  @@index([problemId])
+}
+
+model Submission {
+  id             String    @id @default(uuid())
+  attemptId      String    @unique
+  attempt        Attempt   @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  submissionType String    @default("TEXT") // TEXT, CODE, DIAGRAM
+  content        String    // JSON representation of structured sections
+  idempotencyKey String?
+  submittedAt    DateTime  @default(now())
+}
+
+model Evaluation {
+  id              String              @id @default(uuid())
+  attemptId       String              @unique
+  attempt         Attempt             @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  evaluatorType   String              // AI, RULE_BASED
+  status          String              @default("EVALUATING") // EVALUATING, COMPLETED, FAILED
+  overallScore    Int?                // Derived sum of criteria scores
+  maxOverallScore Int                 @default(80)
+  strengths       String?             // JSON array of strings
+  areasToImprove  String?             // JSON array of strings
+  topImprovements String?             // JSON array of strings (top 3 actionable items)
+  errorMessage    String?
+  startedAt       DateTime            @default(now())
+  completedAt     DateTime?
+
+  criteria        CriterionFeedback[]
+}
+
+model CriterionFeedback {
+  id            String     @id @default(uuid())
+  evaluationId  String
+  evaluation    Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  criterionKey  String     // e.g. class_responsibilities
+  criterionName String     // e.g. "Class Responsibilities"
+  score         Int
+  maxScore      Int        @default(10)
+  evidence      String
+  concern       String
+  suggestion    String
+  confidence    String     // HIGH, MEDIUM, LOW
+
+  @@index([evaluationId])
+}
